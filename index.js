@@ -56,10 +56,12 @@ const ScrollableTabView = createReactClass({
   },
 
   getInitialState() {
+    this._initialWidth = Dimensions.get('window').width;
+    this._goToPageCalled = false;
     return {
       currentPage: this.props.initialPage,
       scrollValue: new Animated.Value(this.props.initialPage),
-      containerWidth: Dimensions.get('window').width,
+      containerWidth: this._initialWidth,
       sceneKeys: this.newSceneKeys({ currentPage: this.props.initialPage, }),
     };
   },
@@ -75,6 +77,9 @@ const ScrollableTabView = createReactClass({
   },
 
   goToPage(pageNumber) {
+    if (!this._goToPageCalled) {
+      this._goToPageCalled = true;
+    }
     const offset = pageNumber * this.state.containerWidth;
     if (this.scrollView) {
       this.scrollView.scrollTo({x: offset, y: 0, animated: !this.props.scrollWithoutAnimation, });
@@ -202,12 +207,23 @@ const ScrollableTabView = createReactClass({
     this.props.onScroll(value);
   },
 
+  _sameWidth(w1, w2) {
+    Math.round(w1) === Math.round(w2);
+  },
+
   _handleLayout(e) {
     const { width, } = e.nativeEvent.layout;
+    const dupWidth = this._sameWidth(width, this.state.containerWidth);
+    const equivalentToInitialWidth = this._sameWidth(width, this._initialWidth);
+    const forceFirstgoToPage = !this._goToPageCalled && equivalentToInitialWidth;
 
-    if (Math.round(width) !== Math.round(this.state.containerWidth)) {
+    if (!dupWidth) {
       this.setState({ containerWidth: width, });
       this.requestAnimationFrame(() => {
+        this.goToPage(this.state.currentPage);
+      });
+    } else if (forceFirstgoToPage) {
+      InteractionManager.runAfterInteractions(() => {
         this.goToPage(this.state.currentPage);
       });
     }
